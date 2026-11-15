@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مستشفى بن زيلع الحديث - قسم المختبر</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        hospitalBlue: '#0284c7',
+                        hospitalDark: '#0f172a',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- jsPDF for PDF Exports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans antialiased min-h-screen flex flex-col transition-colors duration-200">
+
+    <!-- إعدادات الـ Web App وبوت تليجرام -->
+    <script>
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxFYwIPLTQPCR7AUdkn6e1M4yd7niQuD5aABTroFGrmnPZfrnE4-tQX-3E81A0lQqdZ/exec";
+        const BOT_TOKEN = "8628909023:AAHlqIqHmvY9MAcvXyW9cTrS-0QhG2NDAs4";
+        const ADMIN_CHAT_ID = "813574963";
+        const CLINIC_HEADER = "مستشفى بن زيلع الحديث\nخدمة أفضل .. ورعاية أشمل\nقسم المختبر\n----------------------------\n";
+    </script>
+
+    <!-- 1. شاشة تسجيل الدخول والتحقق الأولي (مرة واحدة) -->
+    <div id="loginModal" class="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-700">
+            <div class="text-center mb-6">
+                <div class="bg-sky-100 dark:bg-sky-900/40 text-hospitalBlue w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+                    <i class="fa-solid fa-hospital-user"></i>
+                </div>
+                <h2 class="text-2xl font-bold">مستشفى بن زيلع الحديث</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">نظام إدارة المختبر الطبي - تسجيل الدخول</p>
+            </div>
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">الاسم الكامل</label>
+                    <input type="text" id="loginName" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent focus:ring-2 focus:ring-hospitalBlue focus:outline-none" placeholder="محمد علي الهندي">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">رقم الجوال</label>
+                    <input type="tel" id="loginPhone" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent focus:ring-2 focus:ring-hospitalBlue focus:outline-none" placeholder="7xxxxxxxxx">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">اسم الوظيفة</label>
+                    <input type="text" id="loginRole" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent focus:ring-2 focus:ring-hospitalBlue focus:outline-none" placeholder="فني مختبر">
+                </div>
+                <button type="submit" class="w-full bg-hospitalBlue hover:bg-sky-700 text-white font-semibold py-3 rounded-xl transition shadow-lg shadow-sky-500/30">
+                    طلب كود التحقق عبر تليجرام
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة إدخال كود التحقق -->
+    <div id="verifyModal" class="fixed inset-0 bg-slate-900/80 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
+            <div class="bg-amber-100 dark:bg-amber-900/40 text-amber-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <h3 class="text-xl font-bold mb-2">أدخل كود التحقق المرسل لكم من ادارة المستشفى عبر الواتساب</h3>
+            <input type="text" id="verifyCodeInput" class="w-full text-center text-2xl tracking-widest px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent mb-4 focus:ring-2 focus:ring-hospitalBlue focus:outline-none" placeholder="••••">
+            <button onclick="confirmVerification()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition">
+                تأكيد والدخول للنظام
+            </button>
+        </div>
+    </div>
+
+    <!-- 2. واجهة النظام الرئيسية -->
+    <div id="mainApp" class="flex-1 flex flex-col hidden">
+        <!-- الهيدر العلوي -->
+        <header class="bg-hospitalDark text-white shadow-md sticky top-0 z-30">
+            <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="bg-hospitalBlue p-2.5 rounded-xl text-xl">
+                        <i class="fa-solid fa-microscope"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-base sm:text-lg">مستشفى بن زيلع الحديث</h1>
+                        <p class="text-xs text-slate-400">قسم المختبر | خدمة أفضل .. ورعاية أشمل</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="text-left hidden sm:block">
+                        <p id="displayEmpName" class="text-sm font-semibold text-sky-400">-</p>
+                        <p id="displayEmpRole" class="text-xs text-slate-400">-</p>
+                    </div>
+                    <button onclick="toggleDarkMode()" class="bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-xl text-xs border border-slate-700" title="تبديل الوضع الليلي"><i class="fa-solid fa-moon"></i></button>
+                    <button onclick="refreshDataManual()" class="bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 border border-slate-700">
+                        <i class="fa-solid fa-rotate text-sky-400" id="refreshIcon"></i> تحديث
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- المحتوى -->
+        <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full space-y-6">
+            
+            <!-- 3 مربعات المؤشرات -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">إجمالي الحالات</p>
+                        <h3 id="statTotalOrders" class="text-2xl font-bold mt-1">0</h3>
+                    </div>
+                    <div class="bg-blue-50 dark:bg-blue-900/30 text-hospitalBlue p-3.5 rounded-xl text-xl"><i class="fa-solid fa-clipboard-list"></i></div>
+                </div>
+                <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">حالات قيد الطلب</p>
+                        <h3 id="statPendingOrders" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
+                    </div>
+                    <div class="bg-amber-50 dark:bg-amber-900/30 text-amber-600 p-3.5 rounded-xl text-xl"><i class="fa-solid fa-clock"></i></div>
+                </div>
+                <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">الحالات المنجزة</p>
+                        <h3 id="statCompletedOrders" class="text-2xl font-bold text-emerald-600 mt-1">0</h3>
+                    </div>
+                    <div class="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 p-3.5 rounded-xl text-xl"><i class="fa-solid fa-circle-check"></i></div>
+                </div>
+            </div>
+
+            <!-- 8 الأزرار الرئيسية -->
+            <div>
+                <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">الخدمات الرئيسية</h2>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <button onclick="openModal('addOrderModal')" class="bg-white dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-slate-700 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition text-center group">
+                        <div class="w-12 h-12 bg-sky-100 dark:bg-sky-900/40 text-hospitalBlue rounded-xl flex items-center justify-center mx-auto mb-2 text-lg group-hover:scale-110 transition"><i class="fa-solid fa-plus-circle"></i></div>
+                        <span class="font-semibold text-sm">إضافة طلب</span>
+                    </button>
+                    <button onclick="openModal('confirmDoneModal'); loadPendingOrders();" class="bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-slate-700 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition text-center group">
+                        <div class="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-2 text-lg group-hover:scale-110 transition"><i class="fa-solid fa-check-double"></i></div>
+                        <span class="font-semibold text-sm">تأكيد إنجاز</span>
+                    </button>
+                    <button onclick="openModal('testsModal'); loadTestsList();" class="bg-white dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-slate-700 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition text-center group">
+                        <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/40 text-purple-600 rounded-xl flex items-center justify-center mx-auto mb-2 text-lg group-hover:scale-110 transition"><i class="fa-solid fa-flask"></i></div>
+                        <span class="font-semibold text-sm">إضافة تحاليل</span>
+                    </button>
+                    <button onclick="openModal('patientsModal'); loadPatientsList();" class="bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition text-center group">
+                        <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 text-blue-600 rounded-xl flex items-center justify-center mx-auto mb-2 text-lg group-hover:scale-110 transition"><i class="fa-solid fa-users"></i></div>
+                        <span class="font-semibold text-sm">إدارة المرضى</span>
+                    </button>
+                    <button onclick="openModal('doctorsModal'); loadDoctorsList();" class="bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition text-center group">
+                        <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-2 text-lg group-hover:scale-110 transition"><i class="fa-solid fa-user-doctor"></i></div>
+                        <span class="font-semibold text-sm">إضافة دكتور</span>
+                    </button>
+                    <button onclick="openModal('campsModal'); loadCampsList();" class="bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-slate-700 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition text-center group">
+                        <div class="w-12 h-12 bg-amber-100 dark:bg-amber-900/40 text-amber-600 rounded-xl flex items-center justify-center mx-auto mb-2 text-lg group-hover:scale-110 transition"><i class="fa-solid fa-campground"></i></div>
+                        <span class="font-semibold text-sm">إدارة المخيمات</span>
+                    </button>
+                    <button onclick="openModal('treasuryModal'); loadTreasuryData();" class="bg-white dark:bg-slate-800 hover:bg-teal-50 dark:hover:bg-slate-700 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition text-center group">
+                        <div class="w-12 h-12 bg-teal-100 dark:bg-teal-900/40 text-teal-600 rounded-xl flex items-center justify-center mx-auto mb-2 text-lg group-hover:scale-110 transition"><i class="fa-solid fa-vault"></i></div>
+                        <span class="font-semibold text-sm">الصندوق</span>
+                    </button>
+                    <button onclick="openModal('reportsModal')" class="bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-slate-700 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition text-center group">
+                        <div class="w-12 h-12 bg-rose-100 dark:bg-rose-900/40 text-rose-600 rounded-xl flex items-center justify-center mx-auto mb-2 text-lg group-hover:scale-110 transition"><i class="fa-solid fa-file-pdf"></i></div>
+                        <span class="font-semibold text-sm">التقارير</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- جدول العمليات الأخيرة -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm">
+                <h3 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-history text-hospitalBlue"></i> سجل العمليات الفورية
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right text-sm">
+                        <thead class="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                            <tr>
+                                <th class="p-3 rounded-r-xl">رقم الطلب</th>
+                                <th class="p-3">اسم المريض</th>
+                                <th class="p-3">نوع المريض</th>
+                                <th class="p-3">الحالة</th>
+                                <th class="p-3 rounded-l-xl">التاريخ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentOrdersTableBody">
+                            <tr><td colspan="5" class="text-center p-4 text-slate-400">جاري التحميل...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- نافذة إضافة طلب -->
+    <div id="addOrderModal" class="fixed inset-0 bg-slate-900/80 z-50 hidden items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4 border-b dark:border-slate-700 pb-3">
+                <h3 class="text-lg font-bold"><i class="fa-solid fa-plus-circle text-hospitalBlue"></i> إضافة طلب جديد</h3>
+                <button onclick="closeModal('addOrderModal')" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="submitNewOrder(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">حدد نوع المريض</label>
+                    <select id="patientTypeSelect" onchange="togglePatientTypeFields()" class="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                        <option value="Camp">مريض تابع لمخيم</option>
+                        <option value="Other">مريض آخر</option>
+                    </select>
+                </div>
+                
+                <div id="campPatientSection" class="space-y-2">
+                    <label class="block text-sm font-medium">بحث عن مريض المخيم (من الشيت الخارجي)</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="externalSearchInput" placeholder="اكتب اسم المريض أو جزء منه..." class="flex-1 px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                        <button type="button" onclick="searchExternalCampPatients()" class="bg-hospitalBlue text-white px-4 py-2 rounded-xl"><i class="fa-solid fa-search"></i></button>
+                    </div>
+                    <div id="externalSearchResults" class="max-h-36 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl p-2 hidden"></div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">اسم المريض</label>
+                        <input type="text" id="orderPatientName" required class="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">رقم الجوال</label>
+                        <input type="tel" id="orderPatientPhone" required class="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">رقم العملية (تلقائي)</label>
+                        <input type="text" id="orderNumber" readonly class="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 font-bold text-hospitalBlue">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">السن</label>
+                        <input type="number" id="orderAge" required class="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">فترة التحليل</label>
+                        <select id="orderDuration" onchange="checkCustomDuration(this)" class="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                            <option value="10 دقائق">10 دقائق</option>
+                            <option value="15 دقائق">15 دقائق</option>
+                            <option value="30 دقائق">30 دقائق</option>
+                            <option value="ساعة">ساعة واحدة</option>
+                            <option value="3 ساعات">3 ساعات</option>
+                            <option value="أخرى">أخرى...</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="customDurationBox" class="hidden">
+                    <input type="text" id="customDurationInput" placeholder="اكتب الوقت المخصص..." class="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">الطبيب المعالج</label>
+                        <select id="orderDoctor" class="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent"></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">نوع التحليل</label>
+                        <select id="orderTestType" class="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent"></select>
+                    </div>
+                </div>
+
+                <div id="campSelectionBox">
+                    <label class="block text-sm font-medium mb-1">اختر المخيم التابع له</label>
+                    <select id="orderCampName" class="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent"></select>
+                </div>
+
+                <div id="otherPaymentBox" class="hidden">
+                    <label class="block text-sm font-medium mb-1">المبلغ المدفوع (إن لم يُكتب يُسجل بالآجل)</label>
+                    <input type="number" id="orderPaidAmount" value="0" class="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">ملاحظات</label>
+                    <textarea id="orderNotes" rows="2" class="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent"></textarea>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-4 border-t dark:border-slate-700">
+                    <button type="button" onclick="closeModal('addOrderModal')" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600">إلغاء</button>
+                    <button type="submit" id="saveOrderBtn" class="bg-hospitalBlue hover:bg-sky-700 text-white px-6 py-2 rounded-xl font-semibold shadow-md">حفظ العملية</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- باقي النوافذ (تأكيد إنجاز، تحاليل، مرضى، دكاترة، مخيمات، صندوق، تقارير) -->
+    <div id="confirmDoneModal" class="fixed inset-0 bg-slate-900/80 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-xl w-full p-6 max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4 border-b dark:border-slate-700 pb-3">
+                <h3 class="text-lg font-bold"><i class="fa-solid fa-check-double text-emerald-600"></i> تأكيد إنجاز الفحوصات</h3>
+                <button onclick="closeModal('confirmDoneModal')" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="space-y-3" id="pendingOrdersContainer"><p class="text-center text-slate-400 py-4">جاري التحميل...</p></div>
+        </div>
+    </div>
+
+    <div id="testsModal" class="fixed inset-0 bg-slate-900/80 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-xl w-full p-6">
+            <div class="flex justify-between items-center mb-4 border-b dark:border-slate-700 pb-3">
+                <h3 class="text-lg font-bold"><i class="fa-solid fa-flask text-purple-600"></i> إدارة التحاليل</h3>
+                <button onclick="closeModal('testsModal')" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="addTest(event)" class="space-y-3 mb-4 bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl">
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="text" id="testId" required placeholder="رقم المحلول" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                    <input type="text" id="testName" required placeholder="اسم التحليل" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="number" id="campPrice" required placeholder="سعر المخيمات" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                    <input type="number" id="otherPrice" required placeholder="سعر مريض آخر" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                </div>
+                <button type="submit" class="w-full bg-purple-600 text-white font-semibold py-2 rounded-xl">حفظ التحليل</button>
+            </form>
+            <div id="testsListContainer" class="max-h-40 overflow-y-auto space-y-2"></div>
+        </div>
+    </div>
+
+    <div id="patientsModal" class="fixed inset-0 bg-slate-900/80 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-xl w-full p-6">
+            <div class="flex justify-between items-center mb-4 border-b dark:border-slate-700 pb-3">
+                <h3 class="text-lg font-bold"><i class="fa-solid fa-users text-blue-600"></i> إدارة المرضى</h3>
+                <button onclick="closeModal('patientsModal')" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="patientsListContainer" class="max-h-80 overflow-y-auto space-y-2"><p class="text-center text-slate-400">لا توجد بيانات.</p></div>
+        </div>
+    </div>
+
+    <div id="doctorsModal" class="fixed inset-0 bg-slate-900/80 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-xl w-full p-6">
+            <div class="flex justify-between items-center mb-4 border-b dark:border-slate-700 pb-3">
+                <h3 class="text-lg font-bold"><i class="fa-solid fa-user-doctor text-indigo-600"></i> إدارة الدكاترة</h3>
+                <button onclick="closeModal('doctorsModal')" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="addDoctor(event)" class="space-y-3 mb-4 bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl">
+                <input type="text" id="docName" required placeholder="اسم الدكتور" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="text" id="docSpecialty" required placeholder="التخصص" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                    <input type="tel" id="docPhone" required placeholder="رقم الجوال" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white font-semibold py-2 rounded-xl">حفظ الدكتور</button>
+            </form>
+            <div id="doctorsListContainer" class="max-h-40 overflow-y-auto space-y-2"></div>
+        </div>
+    </div>
+
+    <div id="campsModal" class="fixed inset-0 bg-slate-900/80 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-xl w-full p-6">
+            <div class="flex justify-between items-center mb-4 border-b dark:border-slate-700 pb-3">
+                <h3 class="text-lg font-bold"><i class="fa-solid fa-campground text-amber-600"></i> إدارة المخيمات</h3>
+                <button onclick="closeModal('campsModal')" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="addCamp(event)" class="space-y-3 mb-4 bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl">
+                <input type="text" id="campName" required placeholder="اسم المخيم" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                <input type="text" id="campExecutor" required placeholder="الجهة المنفذة" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="date" id="campStart" required class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                    <input type="date" id="campEnd" required class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent">
+                </div>
+                <button type="submit" class="w-full bg-amber-600 text-white font-semibold py-2 rounded-xl">حفظ المخيم</button>
+            </form>
+            <div id="campsListContainer" class="max-h-40 overflow-y-auto space-y-2"></div>
+        </div>
+    </div>
+
+    <div id="treasuryModal" class="fixed inset-0 bg-slate-900/80 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-xl w-full p-6">
+            <div class="flex justify-between items-center mb-4 border-b dark:border-slate-700 pb-3">
+                <h3 class="text-lg font-bold"><i class="fa-solid fa-vault text-teal-600"></i> الصندوق</h3>
+                <button onclick="closeModal('treasuryModal')" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800">
+                    <p class="text-xs text-emerald-600">إجمالي الوارد</p>
+                    <h4 id="totalInAmount" class="text-xl font-bold text-emerald-700 mt-1">0</h4>
+                </div>
+                <div class="bg-rose-50 dark:bg-rose-900/20 p-4 rounded-xl border border-rose-100 dark:border-rose-800">
+                    <p class="text-xs text-rose-600">إجمالي المنصرف</p>
+                    <h4 id="totalOutAmount" class="text-xl font-bold text-rose-700 mt-1">0</h4>
+                </div>
+            </div>
+            <button onclick="addVoucher('قبض')" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2.5 rounded-xl mb-2">إضافة سند قبض PDF</button>
+            <button onclick="addVoucher('صرف')" class="w-full bg-slate-700 hover:bg-slate-800 text-white font-semibold py-2.5 rounded-xl">إضافة سند صرف PDF</button>
+        </div>
+    </div>
+
+    <div id="reportsModal" class="fixed inset-0 bg-slate-900/80 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
+            <div class="bg-rose-100 dark:bg-rose-900/40 text-rose-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+                <i class="fa-solid fa-file-pdf"></i>
+            </div>
+            <h3 class="text-xl font-bold mb-2">تقارير النظام الاحترافية</h3>
+            <select id="reportTypeSelect" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-transparent mb-4">
+                <option value="all">تقرير شامل لجميع العمليات</option>
+                <option value="pending">تقرير الفحوصات قيد الطلب</option>
+                <option value="completed">تقرير الفحوصات المنجزة</option>
+                <option value="treasury">تقرير حركة الصندوق</option>
+            </select>
+            <button onclick="generatePDFReport()" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-3 rounded-xl">تحميل التقرير PDF</button>
+        </div>
+    </div>
+
+    <!-- JavaScript البرمجي -->
+    <script>
+        let currentUser = null;
+        let generatedOtp = "";
+
+        window.onload = function() {
+            const saved = localStorage.getItem("lab_user");
+            if (saved) {
+                currentUser = JSON.parse(saved);
+                document.getElementById("loginModal").style.display = "none";
+                document.getElementById("mainApp").classList.remove("hidden");
+                document.getElementById("displayEmpName").innerText = currentUser.name;
+                document.getElementById("displayEmpRole").innerText = currentUser.role;
+                loadDashboard();
+                setInterval(loadDashboard, 60000); // تحديث تلقائي كل دقيقة
+            } else {
+                document.getElementById("loginModal").style.display = "flex";
+            }
+            document.getElementById("orderNumber").value = "ORD-" + Math.floor(100000 + Math.random() * 900000);
+        };
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const name = document.getElementById("loginName").value;
+            const phone = document.getElementById("loginPhone").value;
+            const role = document.getElementById("loginRole").value;
+            generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
+
+            const msg = `${CLINIC_HEADER}🔐 *طلب كود تحقق جديد*\n👤 الاسم: ${name}\n📱 الجوال: ${phone}\n💼 الوظيفة: ${role}\n🔑 الكود: *${generatedOtp}*`;
+            sendTelegramMessage(msg);
+
+            document.getElementById("loginModal").style.display = "none";
+            document.getElementById("verifyModal").style.display = "flex";
+            window.tempUser = { name, phone, role };
+        }
+
+        function confirmVerification() {
+            if (document.getElementById("verifyCodeInput").value === generatedOtp) {
+                currentUser = window.tempUser;
+                localStorage.setItem("lab_user", JSON.stringify(currentUser));
+                document.getElementById("verifyModal").style.display = "none";
+                document.getElementById("mainApp").classList.remove("hidden");
+                document.getElementById("displayEmpName").innerText = currentUser.name;
+                document.getElementById("displayEmpRole").innerText = currentUser.role;
+                saveToSheet("Users", [Date.now(), currentUser.name, currentUser.phone, currentUser.role, ADMIN_CHAT_ID, new Date().toLocaleString()]);
+                loadDashboard();
+            } else {
+                alert("كود التحقق غير صحيح!");
+            }
+        }
+
+        function sendTelegramMessage(text) {
+            fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${ADMIN_CHAT_ID}&text=${encodeURIComponent(text)}&parse_mode=Markdown`).catch(e => console.log(e));
+        }
+
+        function openModal(id) { document.getElementById(id).classList.remove("hidden"); document.getElementById(id).style.display = "flex"; }
+        function closeModal(id) { document.getElementById(id).classList.add("hidden"); document.getElementById(id).style.display = "none"; }
+        function toggleDarkMode() { document.documentElement.classList.toggle('dark'); }
+
+        function saveToSheet(sheetName, rowData, callback) {
+            fetch(SCRIPT_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "add", sheetName: sheetName, row: rowData })
+            }).then(res => res.json()).then(res => { if(callback) callback(res); }).catch(err => console.error(err));
+        }
+
+        function getFromSheet(sheetName, callback) {
+            fetch(SCRIPT_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "get", sheetName: sheetName })
+            }).then(res => res.json()).then(res => { if (res.status === "success") callback(res.data); }).catch(err => console.error(err));
+        }
+
+        function loadDashboard() {
+            getFromSheet("Orders", function(orders) {
+                document.getElementById("statTotalOrders").innerText = orders.length;
+                document.getElementById("statPendingOrders").innerText = orders.filter(o => o.Status === "قيد الطلب").length;
+                document.getElementById("statCompletedOrders").innerText = orders.filter(o => o.Status === "منجزة").length;
+
+                let tbody = document.getElementById("recentOrdersTableBody");
+                tbody.innerHTML = "";
+                if (orders.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-slate-400">لا توجد طلبات بعد</td></tr>`; return; }
+                orders.slice(-5).reverse().forEach(o => {
+                    tbody.innerHTML += `
+                        <tr class="border-b dark:border-slate-700">
+                            <td class="p-3 font-bold text-hospitalBlue">${o.OrderNo}</td>
+                            <td class="p-3">${o.PatientName}</td>
+                            <td class="p-3">${o.PatientType}</td>
+                            <td class="p-3"><span class="px-2.5 py-1 rounded-full text-xs ${o.Status === 'منجزة' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${o.Status}</span></td>
+                            <td class="p-3 text-xs text-slate-400">${o.CreatedAt}</td>
+                        </tr>
+                    `;
+                });
+            });
+            loadDropdowns();
+        }
+
+        function refreshDataManual() {
+            const icon = document.getElementById("refreshIcon");
+            icon.classList.add("fa-spin");
+            loadDashboard();
+            setTimeout(() => icon.classList.remove("fa-spin"), 800);
+        }
+
+        function togglePatientTypeFields() {
+            const val = document.getElementById("patientTypeSelect").value;
+            document.getElementById("campPatientSection").style.display = val === 'Camp' ? 'block' : 'none';
+            document.getElementById("campSelectionBox").style.display = val === 'Camp' ? 'block' : 'none';
+            document.getElementById("otherPaymentBox").style.display = val === 'Other' ? 'block' : 'none';
+        }
+
+        function checkCustomDuration(sel) {
+            document.getElementById("customDurationBox").style.display = sel.value === 'أخرى' ? 'block' : 'none';
+        }
+
+        function loadDropdowns() {
+            getFromSheet("Camps", camps => {
+                let sel = document.getElementById("orderCampName");
+                sel.innerHTML = '<option value="">اختر المخيم</option>';
+                camps.forEach(c => sel.innerHTML += `<option value="${c.CampName}">${c.CampName}</option>`);
+            });
+            getFromSheet("Doctors", docs => {
+                let sel = document.getElementById("orderDoctor");
+                sel.innerHTML = '<option value="">اختر الدكتور</option>';
+                docs.forEach(d => sel.innerHTML += `<option value="${d.DoctorName}">${d.DoctorName}</option>`);
+            });
+            getFromSheet("Tests", tests => {
+                let sel = document.getElementById("orderTestType");
+                sel.innerHTML = '<option value="">اختر التحليل</option>';
+                tests.forEach(t => sel.innerHTML += `<option value="${t.TestName}">${t.TestName}</option>`);
+            });
+        }
+
+        function searchExternalCampPatients() {
+            const query = document.getElementById("externalSearchInput").value.toLowerCase();
+            fetch(SCRIPT_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "getExternalCampPatients" })
+            }).then(res => res.json()).then(res => {
+                if (res.status === "success") {
+                    let box = document.getElementById("externalSearchResults");
+                    box.classList.remove("hidden");
+                    box.innerHTML = "";
+                    let filtered = res.data.filter(p => JSON.stringify(p).toLowerCase().includes(query));
+                    if (filtered.length === 0) { box.innerHTML = `<p class="text-xs text-slate-400 p-2">لا توجد نتائج</p>`; return; }
+                    filtered.forEach(p => {
+                        let name = p.PatientName || p.Name || Object.values(p)[0];
+                        let phone = p.Phone || Object.values(p)[1] || '';
+                        let loc = p.Location || Object.values(p)[2] || '';
+                        box.innerHTML += `
+                            <div onclick="selectCampPatient('${name}', '${phone}', '${loc}')" class="p-2 hover:bg-sky-50 dark:hover:bg-slate-700 cursor-pointer rounded-lg text-xs border-b dark:border-slate-700">
+                                <b>${name}</b> - ${phone} - ${loc}
+                            </div>
+                        `;
+                    });
+                }
+            });
+        }
+
+        function selectCampPatient(name, phone, loc) {
+            document.getElementById("orderPatientName").value = name;
+            document.getElementById("orderPatientPhone").value = phone;
+            document.getElementById("externalSearchResults").classList.add("hidden");
+        }
+
+        function submitNewOrder(e) {
+            e.preventDefault();
+            const btn = document.getElementById("saveOrderBtn");
+            btn.disabled = true;
+            btn.innerText = "جاري الحفظ...";
+
+            const orderNo = document.getElementById("orderNumber").value;
+            const patientType = document.getElementById("patientTypeSelect").value;
+            const campName = patientType === 'Camp' ? document.getElementById("orderCampName").value : "بدون مخيم";
+            const patientName = document.getElementById("orderPatientName").value;
+            const phone = document.getElementById("orderPatientPhone").value;
+            const age = document.getElementById("orderAge").value;
+            let duration = document.getElementById("orderDuration").value;
+            if(duration === 'أخرى') duration = document.getElementById("customDurationInput").value;
+            const doctor = document.getElementById("orderDoctor").value;
+            const testType = document.getElementById("orderTestType").value;
+            const paid = patientType === 'Other' ? (document.getElementById("orderPaidAmount").value || 0) : 0;
+            const notes = document.getElementById("orderNotes").value;
+
+            const rowData = [orderNo, patientName, phone, patientType, campName, age, doctor, testType, 0, paid, 0, "قيد الطلب", currentUser.name, duration, notes, new Date().toLocaleString()];
+            
+            saveToSheet("Orders", rowData, () => {
+                sendTelegramMessage(`${CLINIC_HEADER}📋 *طلب فحص جديد*\nرقم الطلب: ${orderNo}\nالمريض: ${patientName}\nالتحليل: ${testType}\nالمنفذ: ${currentUser.name}`);
+                alert("تم حفظ الطلب بنجاح وتحديث النظام!");
+                closeModal('addOrderModal');
+                btn.disabled = false;
+                btn.innerText = "حفظ العملية";
+                loadDashboard();
+            });
+        }
+
+        function loadPendingOrders() {
+            getFromSheet("Orders", orders => {
+                let container = document.getElementById("pendingOrdersContainer");
+                container.innerHTML = "";
+                let pending = orders.filter(o => o.Status === "قيد الطلب");
+                if (pending.length === 0) { container.innerHTML = `<p class="text-center text-slate-400 py-4">لا توجد طلبات قيد الإنجاز</p>`; return; }
+                pending.forEach(o => {
+                    container.innerHTML += `
+                        <div class="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-xl border dark:border-slate-700 flex justify-between items-center">
+                            <div>
+                                <h4 class="font-bold">${o.PatientName} (${o.OrderNo})</h4>
+                                <p class="text-xs text-slate-400">التحليل: ${o.TestsList} | الجوال: ${o.PatientPhone}</p>
+                            </div>
+                            <button onclick="completeOrder('${o.OrderNo}', '${o.PatientPhone}', '${o.PatientName}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">إنجاز وواتساب</button>
+                        </div>
+                    `;
+                });
+            });
+        }
+
+        function completeOrder(orderNo, phone, name) {
+            if (confirm("هل تم إنجاز الفحص؟")) {
+                const text = `${CLINIC_HEADER}عزيزي المريض / ${name}\nنحيطكم علماً بأنه تم إنجاز فحصكم الطبي (طلب رقم: ${orderNo}) بنجاح.\nنتمنى لكم الشفاء العاجل.`;
+                window.open(`https://wa.me/967${phone}?text=${encodeURIComponent(text)}`, '_blank');
+                alert("تم التحويل للواتساب لإرسال الإشعار!");
+                closeModal('confirmDoneModal');
+                loadDashboard();
+            }
+        }
+
+        function addTest(e) {
+            e.preventDefault();
+            saveToSheet("Tests", [document.getElementById("testId").value, document.getElementById("testName").value, document.getElementById("campPrice").value, document.getElementById("otherPrice").value, new Date().toLocaleString()], () => { alert("تم حفظ التحليل!"); e.target.reset(); });
+        }
+
+        function addDoctor(e) {
+            e.preventDefault();
+            saveToSheet("Doctors", ["DOC-" + Math.floor(100 + Math.random()*900), document.getElementById("docName").value, document.getElementById("docSpecialty").value, "سيئون", document.getElementById("docPhone").value, new Date().toLocaleString()], () => { alert("تم حفظ الدكتور!"); e.target.reset(); });
+        }
+
+        function addCamp(e) {
+            e.preventDefault();
+            saveToSheet("Camps", ["CAMP-" + Math.floor(100 + Math.random()*900), document.getElementById("campName").value, document.getElementById("campExecutor").value, document.getElementById("campStart").value, document.getElementById("campEnd").value, new Date().toLocaleString()], () => { alert("تم حفظ المخيم!"); e.target.reset(); });
+        }
+
+        function addVoucher(type) {
+            const amount = prompt(`أدخل مبلغ سند الـ ${type}:`);
+            if(amount) {
+                const statement = prompt("أدخل البيان / الغرض:") || "سند عام";
+                saveToSheet("Treasury", ["V-" + Math.floor(1000+Math.random()*9000), type, "مستفيد عام", "نقدأ", amount, "ريال يمني", statement, currentUser.name, new Date().toLocaleString()], () => { alert("تم حفظ السند بنجاح!"); });
+            }
+        }
+
+        function generatePDFReport() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text("Ben Zeila Modern Hospital - Lab Department", 20, 20);
+            doc.text("Official Report by: " + currentUser.name, 20, 30);
+            doc.save("Lab_Report.pdf");
+        }
+    </script>
+</body>
+</html>
